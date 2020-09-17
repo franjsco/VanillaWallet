@@ -48,6 +48,7 @@ from sty import fg, bg, ef, rs
 import sounddevice as sd
 
 import cli
+import helper
 
 import bit
 from bit import utils
@@ -71,22 +72,11 @@ import hashlib
 MIC_RND_SEC = 30        # seconds of mic sampling for private key generation
 SHA_RND_RND = 2048      # number of sha256 rounds for private key generation
 MIC_SLT_SEC = 5         # seconds of mic sampling for salt
-SAMPLE_RATE = 44100     # rate of sampling for audio recording 
 
 Args = {}               # Parameters received from command line argiments
 dataDict={}             # Dictionaries of values to share between BC address creation functions (RORO approach)
 
 JOut={}                 # JSON Output Object
-
-####################################################################################################
-##
-## HELPER FUNCTIONS
-##
-
-def getNoise(sec):
-    sound = sd.rec(int(SAMPLE_RATE * sec), samplerate=SAMPLE_RATE, channels=2, blocking=True)
-    return hashlib.sha256(bytearray(b''.join(sound))).hexdigest()
-
 
 ####################################################################################################
 ##
@@ -104,11 +94,11 @@ def generatePrivateKey():
     else:
         # create random by reading the mic for rnd_len seconds
         print("Getting entropy from %s secs mic audio recording... Please wait (and make some noise)" % str(MIC_RND_SEC) )
-        hash0=getNoise(MIC_RND_SEC)
+        hash0=helper.getNoiseFromMicrophone(MIC_RND_SEC)
 
         # create random for salt
         print("Getting salt from %s secs mic audio recording... Please wait (and make some noise)" % str(MIC_SLT_SEC))
-        salt0=getNoise(MIC_SLT_SEC)
+        salt0=helper.getNoiseFromMicrophone(MIC_SLT_SEC)
 
     """ sha256 rounds """
     print ("Iterating %s rounds of salted sha256 hashing... Please wait" % SHA_RND_RND )
