@@ -41,12 +41,13 @@
 
 ### Imports
 import sys
-import argparse
 import subprocess
 import json
 import re
 from sty import fg, bg, ef, rs
 import sounddevice as sd
+
+import cli
 
 import bit
 from bit import utils
@@ -302,92 +303,6 @@ def jsonExportLiteCoinWallet():
 
 
 
-####################################################################################################
-##
-## RESULT PRINTING FUNCTIONS
-##
-
-def banner(color, name):
-    """
-        Print a banner with a color and name of the coin
-    """
-    print()
-    bgc = bg(color) if isinstance(color,str) else bg(*color)
-    print(bgc + ef.bold + "{:^20}".format(name) + rs.bg + rs.bold_dim)
-
-
-def printSeed():
-    ## DISPLAY RESULTS TO STDOUT
-    banner("white","Seed")
-    print("\tPrivate key: ", JOut['keys']['privateKey'])
-    print("\tPublic key   ", JOut['keys']['publicKey'], " (Secp256k1 compressed)")
-    print("\tPublic key:  ",JOut['keys']['publicKeyUncompressed'], " (uncompressed)")
-
-    if Args.wordlist:
-        print("\tBIP39 Seed:     ", end="")
-        for idx, word in enumerate(JOut['keys']['bip39words'].split(" ")):
-            print("{:2}){:12}\t".format(idx+1,word), end="")
-            if ((idx+1) % 6 == 0):
-                print("\n\t\t\t", end="")
-    else: 
-        print("\tBIP39 Seed:  ", JOut['keys']['bip39words'])
-
-
-def printBitcoinWallet():
-    banner((255, 150, 50), "Bitcoin")
-    print("\tNetwork:     ", JOut['wallet']['bitcoin']['network'])
-    print("\tHash160:     ", JOut['wallet']['bitcoin']['hash160'], "(ripmed160(sha256(pub)))")
-    print("\tWIF:         ", JOut['wallet']['bitcoin']['WIF'])
-    if Args.password != None:
-        print("\tBIP38:       ", JOut['wallet']['bitcoin']['BIP38'], "(encrypted private key)")
-    print("\tAddress:     ", JOut['wallet']['bitcoin']['address'], " (P2PKH)")
-    print("\tSegWit Addr: ", JOut['wallet']['bitcoin']['segwitAddress'])
-    print("\tBech32 Addr: ", JOut['wallet']['bitcoin']['bech32'])
-
-
-def printEthereumWallet():
-    banner((150, 150, 150),"Ethereum")
-    print("\tAddress:     ", JOut['wallet']['ethereum']['address'])
-    if Args.password != None:
-        print("\tUTC-JSON:    ", deriveUTCJSON())
-
-
-def printEthereumClassicWallet():
-    banner((0, 150, 0),"EthereumClassic")
-    print("\tAddress:     ", JOut['wallet']['ethereumClassic']['address'])
-    if Args.password != None:
-        print("\tUTC-JSON:    ", deriveUTCJSON())
-
-
-def printQuadransWallet():
-    banner((150, 0, 150),"Quadrans")
-    print("\tAddress:     ", JOut['wallet']['quadrans']['address'])
-    if Args.password != None:
-        print("\tUTC-JSON:    ", deriveUTCJSON())
-
-
-def printDashWallet():
-    banner((50, 50, 255),"Dash")
-    print("\tNetwork:     ", JOut['wallet']['dash']['network'])
-    print("\tWIF:         ", JOut['wallet']['dash']['WIF'])
-    print("\tAddress:     ", JOut['wallet']['dash']['addrP2PKH'], " (P2PKH)")
-    print("\tAddress:     ", JOut['wallet']['dash']['addrP2SH'], " (P2SH)")
-
-
-def printLiteCoinWallet():
-    banner((100, 100, 100),"Litecoin")
-    print("\tNetwork:     ", JOut['wallet']['litecoin']['network'])
-    print("\tWIF:         ", JOut['wallet']['litecoin']['WIF'])
-    print("\tAddress:     ", JOut['wallet']['litecoin']['address'], " (P2PKH)")
-    if not Args.testnet:
-        print("\tBech32 Addr: ", JOut['wallet']['litecoin']['bech32'])
-
-
-####################################################################################################
-##
-## RESULT PRINTING FUNCTIONS
-##
-
 
 def main():    
     global dataDict
@@ -414,57 +329,20 @@ def main():
     if Args.json :
         print (json.dumps(JOut,indent=4))
     else :
-        printSeed()
+        cli.printSeed(JOut["keys"], Args)
         if Args.blockchain in ["all","Bitcoin", "btc", "xbt"]:
-            printBitcoinWallet()
+            cli.printBitcoinWallet(JOut["wallet"], Args)
         if Args.blockchain in ["all","Ethereum", "eth"]:
-            printEthereumWallet()
+            cli.printEthereumWallet(JOut["wallet"], Args, deriveUTCJSON)
         if Args.blockchain in ["all","EthereumClassic", "etc"]:
-            printEthereumClassicWallet()
+            cli.printEthereumClassicWallet(JOut["wallet"], Args, deriveUTCJSON)
         if Args.blockchain in ["all","Quadrans", "qdc"]:
-            printQuadransWallet()
+            cli.printQuadransWallet(JOut["wallet"], Args, deriveUTCJSON)
         if Args.blockchain in ["all","Dash", "dash"]:
-            printDashWallet()
+            cli.printDashWallet(JOut["wallet"])
         if Args.blockchain in ["all","Litecoin", "ltc"]:
-            printLiteCoinWallet()
+            cli.printLiteCoinWallet(JOut["wallet"], Args)
 
-
-
-def parseArguments():
-    global Args
-    """ parsing arguments """
-    parser = argparse.ArgumentParser("Vanilla Wallet command line arguments")
-    parser.add_argument("-bc", "--blockchain", help="Optional, the blockchain the wallet is generater for. Default: all", 
-        type=str, required=False, default="all",
-        choices=[
-            "all",
-            "Bitcoin", "btc", "xbt", 
-            "Litecoin", "ltc",
-            "Ethereum", "eth",
-            "EthereumClassic", "etc",
-            "Quadrans", "qdc",
-            "Dash", "dash"
-            ])
-
-    parser.add_argument("-wn", "--wordnumber", help="Optional, print BIP39 word list in numbered table", dest='wordlist', action='store_const', const=True, default=False)
-    parser.add_argument("-e", "--entropy", help="An optional random string in case you prefer providing your own entropy", type=str, required=False)
-    parser.add_argument("-l", "--language", help="Optional, the language for the mnemonic words list (BIP39). Default: english", type=str, required=False, default="english", choices=["english", "chinese_simplified", "chinese_traditional", "french", "italian", "japanese", "korean", "spanish"])
-    parser.add_argument("-t", "--testnet", help="Generate addresses for test net (default is main net)", dest='testnet', action='store_const', const=True, default=False)
-    parser.add_argument("-r", "--restore", help="Restore a wallet from BIP39 word list", dest="restore", type=str, required=False)
-    parser.add_argument("-p", "--password", help="Password for wallet encryption", dest="password", type=str, required=False)
-    parser.add_argument("-j", "--json", help="Produce only json output", dest='json', action='store_const', const=True, default=False)
-    
-    ## Yet to be implemented
-    parser.add_argument("-d", "--directory", help="An optional where to save produced files (json and qr codes)", type=str, required=False, default=".")
-    parser.add_argument("-q", "--qrcode", help="Generate qrcodes for addresses and keys", dest='qrcode', action='store_const', const=True, default=False)
-
-    Args = parser.parse_args()
-
-
-####################################################################################################
-###
-###    START
-###
 
 
 if sys.version_info[0] < 3:
@@ -472,7 +350,9 @@ if sys.version_info[0] < 3:
 
 if __name__ == "__main__": 
     # What does the user want?
-    parseArguments()
+    # parseArguments()
+
+    Args = cli.parse_arguments() # temporary
 
     # How to generate private key?
     if (Args.restore):
